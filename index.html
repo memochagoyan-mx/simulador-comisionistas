@@ -319,8 +319,8 @@ body.codes footer[data-code]::after{top:3px}
       </div>
 
       <div class="fld" data-code="2b3 · Interés">
-        <div class="fh"><span class="l"><span class="lbl">Interés mensual</span><span class="ib" tabindex="0" role="button" aria-label="Más información sobre interés" data-tip="Aplica al 80% del ahorro que se presta, desde el mes 4. Si el impago exige más, subimos el interés al mínimo y te avisamos.">i</span></span><span class="val" id="intV">3.1%</span></div>
-        <div class="sl"><input type="range" id="int" min="2" max="5" step="0.1" value="3.1" aria-label="Interés mensual"><div class="ticks" id="intT"></div></div>
+        <div class="fh"><span class="l"><span class="lbl">Interés mensual</span><span class="ib" tabindex="0" role="button" aria-label="Más información sobre interés" data-tip="Aplica al 70% del ahorro que se presta, desde el mes 4. Si el impago exige más, subimos el interés al mínimo y te avisamos.">i</span></span><span class="val" id="intV">2.3%</span></div>
+        <div class="sl"><input type="range" id="int" min="2" max="5" step="0.1" value="2.3" aria-label="Interés mensual"><div class="ticks" id="intT"></div></div>
         <div class="note" id="intNote" hidden></div>
       </div>
 
@@ -343,8 +343,8 @@ body.codes footer[data-code]::after{top:3px}
         <div><label for="fee">Fee de Apoya · %</label><input type="number" id="fee" min="7.5" max="30" step="0.5" value="15"></div>
         <div><label for="precio">Licencia · $ por ahorrador</label><input type="number" id="precio" min="20" max="30" step="1" value="25"></div>
         <div><label for="imp">Impago · % anual</label><input type="number" id="imp" min="0" max="15" step="0.5" value="5"></div>
-        <div><label for="rot">Rotación · % anual</label><input type="number" id="rot" min="0" max="38" step="1" value="15"></div>
-        <div class="full"><label for="rend">Rendimiento anual de la inversión <span class="ib" tabindex="0" role="button" aria-label="Más información sobre rendimiento" data-tip="Aplica al 20% del ahorro que no se presta (CETES a 28 días). En los meses 1 a 3, al 100%.">i</span></label><input type="number" id="rend" min="0" max="15" step="0.05" value="6.45"></div>
+        <div><label for="rot">Rotación · % anual</label><input type="number" id="rot" min="0" max="38" step="1" value="20"></div>
+        <div class="full"><label for="rend">Rendimiento anual de la inversión <span class="ib" tabindex="0" role="button" aria-label="Más información sobre rendimiento" data-tip="Aplica al 30% del ahorro que no se presta (CETES a 28 días). En los meses 1 a 3, al 100%.">i</span></label><input type="number" id="rend" min="0" max="15" step="0.05" value="6.45"></div>
       </div>
     </details>
 
@@ -409,12 +409,13 @@ import random
 import sys
 from dataclasses import dataclass, fields, replace
 
-VERSION = "0.12"
+VERSION = "0.13.2"
 LIMITE_BONO = (2027, 12)
 ESQUEMAS = ("A", "B")
 CORRIDAS = 500
 SEMILLA = 2026
 PERCENTILES = (10, 50, 90)
+CRECIMIENTO_RANGO = (0.0, 0.40)   # v13.2: tasa de crecimiento de socios por anio de vida
 MEJOR_CASO_MENSUAL = 0.01      # mejor caso: 1% mensual (11.4% anual)
 
 
@@ -433,17 +434,17 @@ class Empresa:
     grupos: tuple = ((0.25, 200.0), (0.50, 480.0), (0.25, 700.0))
     incr: float = 0.025
     # PIEZA 1 - bajas de socios
-    rotacion_anual: float = 0.25   # rotacion anual PRINCIPAL (caso tipico)
+    rotacion_anual: float = 0.20   # rotacion anual PRINCIPAL (v13.2: 20%, alineada con el front)
     baja_inicio: int = 4           # primer mes con bajas
     tope_baja_anual: float = 0.38  # rotacion anual maxima
     reposicion: float = 1.0        # fraccion de bajas que se repone (saldo 0)
     # PIEZA 2 - retiros parciales (provisionales; calibrar en Etapa 3)
-    retiro_parcial_mensual: float = 0.005   # % mensual del saldo
+    retiro_parcial_mensual: float = 0.02    # % mensual del saldo (v13.2: 2.0%)
     retiro_inicio: int = 4                  # primer mes con retiros
-    eventos_meses: tuple = (4, 5, 11, 12, 1)  # meses del calendario
+    eventos_meses: tuple = (9, 11)          # meses del calendario (v13.2: sep y nov)
     evento_pct: float = 0.015               # % del saldo por evento
     pico_mes: int = 8                       # mes del calendario del pico (agosto); 0 = sin pico
-    pico_pct: float = 0.02                  # % del saldo en el pico de agosto
+    pico_pct: float = 0.10                  # % del saldo en el pico de agosto (v13.2: 10%)
     # PIEZA 3 - rendimiento, colchon y provision (provisionales)
     p3_activa: bool = True
     pct_socio: float = 0.80          # % del rendimiento neto que se acredita al socio
@@ -452,9 +453,9 @@ class Empresa:
     colchon_reparto: float = 1.0     # % del sobrante del colchon que se reparte a socios
     # Caja
     meses_sin_prestamo: int = 3
-    pct_cartera: float = 0.80
+    pct_cartera: float = 0.70       # v13.2: 70% prestado
     rend_inv: float = 0.0645
-    i_mens: float = 0.031
+    i_mens: float = 0.023       # v13.2: 2.3% mensual (alineado con el front)
     # Apoya
     f: float = 0.15
     P: float = 25.0
@@ -476,6 +477,9 @@ class Empresa:
     seg_fun: float = 3.0
     seg_fun_inicio: int = 6
     prest_prom: float = 11000.0
+    # Crecimiento de socios (v13.2, NUEVO): tasa por ano de vida (1 a 5). Despues del ano 5 se repite la ultima.
+    # (0,0,0,0,0) = sin crecimiento (igual que v12). Socios nuevos entran mes a mes con saldo cero.
+    crecimiento: tuple = (0.165, 0.15, 0.12, 0.08, 0.05)
     # Horizonte
     T: int = 60
 
@@ -497,7 +501,7 @@ RANGOS = {
     "colchon_reparto": (0.0, 1.0, "% del sobrante del colchon que se reparte"),
     "evento_pct": (0.0, 0.20, "retiro por evento"),
     "pico_pct": (0.0, 0.20, "retiro en el pico de agosto"),
-    "pct_cartera": (0.0, 0.95, "% de cartera prestada"),
+    "pct_cartera": (0.40, 1.0, "% de cartera prestada"),   # v13.2: 40% a 100%
     "rend_inv": (0.0, 0.20, "rendimiento de inversion"),
     "i_mens": (0.02, 0.05, "interes mensual sobre prestamos"),
     "f": (0.075, 0.30, "fee variable"),
@@ -538,6 +542,20 @@ def ahorradores_iniciales(e):
     """v0.12 (C1). A = REDONDEAR(N x adhesion), 0.5 sube (Logica 3.1). Se quita primero el ruido de
     decimales de la computadora (1430 x 0.35 = 500.49999999999994 -> 500.5 -> 501)."""
     return int(round(e.N * e.adh, 6) + 0.5)
+
+
+CRECIMIENTO_NINGUNO = (0.0, 0.0, 0.0, 0.0, 0.0)
+CRECIMIENTO_BASE = (0.165, 0.15, 0.12, 0.08, 0.05)
+
+
+def factor_crecimiento_mes(e, t):
+    """v13.2. Factor mensual de crecimiento de socios en el mes t (compuesto dentro del ano de vida).
+    El mes 1 no crece. Con tasas en cero devuelve exactamente 1.0 (igual que v12)."""
+    if t <= 1 or not e.crecimiento:
+        return 1.0
+    y = min((t - 1) // 12, len(e.crecimiento) - 1)
+    g = e.crecimiento[y]
+    return 1.0 if g == 0 else (1.0 + g) ** (1.0 / 12.0)
 
 
 def baja_mensual(e):
@@ -596,6 +614,11 @@ def validar(e):
     if e.rotacion_anual > e.tope_baja_anual + 1e-12:
         err.append("%s: la rotacion anual de %.1f%% supera el tope de %.0f%%" % (
             e.nombre, e.rotacion_anual * 100, e.tope_baja_anual * 100))
+    cr = e.crecimiento
+    if (not isinstance(cr, (tuple, list))) or not 1 <= len(cr) <= 5 or any(
+            (not isinstance(g, (int, float))) or not CRECIMIENTO_RANGO[0] <= g <= CRECIMIENTO_RANGO[1] for g in cr):
+        err.append("%s: el crecimiento de socios debe ser de 1 a 5 tasas por anio, cada una entre %.0f%% y %.0f%%" % (
+            e.nombre, CRECIMIENTO_RANGO[0] * 100, CRECIMIENTO_RANGO[1] * 100))
     if any((not isinstance(m, int)) or not 1 <= m <= 12 for m in e.eventos_meses):
         err.append("%s: los meses de eventos deben ser enteros de 1 a 12" % e.nombre)
     if (not isinstance(e.pico_mes, int)) or not 0 <= e.pico_mes <= 12:
@@ -663,8 +686,18 @@ def _simular_legacy(e: Empresa, extra=None):
         # Piezas 1: baja mensual del mes (fija desde baja_inicio + ola)
         fija = baja_mensual(e) if t >= e.baja_inicio else 0.0
         bt = 1 - (1 - fija) * (1 - extra.get(t, 0.0))
+        if t == 1:
+            coh = [[A, 1]]                            # v13.2: cohortes (tamano, mes de entrada)
         if t > 1:
-            A = A * (1 - bt * (1 - e.reposicion))
+            enc = 1 - bt * (1 - e.reposicion)
+            A = A * enc
+            if enc != 1.0:
+                coh = [[sz * enc, jt] for sz, jt in coh]
+            fg = factor_crecimiento_mes(e, t)         # v13.2: socios nuevos (saldo cero)
+            if fg != 1.0:
+                A_ant = A
+                A = A * fg
+                coh.append([A - A_ant, t])
         # PIEZA 2: retiro mensual fijo + evento del calendario (desde retiro_inicio)
         cal = (m0 + t - 1) % 12 + 1
         parcial = e.retiro_parcial_mensual if t >= e.retiro_inicio else 0.0
@@ -674,7 +707,7 @@ def _simular_legacy(e: Empresa, extra=None):
                 + (e.pico_pct if (e.pico_mes and cal == e.pico_mes) else 0.0)
         retiros = min(bt + parcial + evento, 1.0) * saldo
         baja_monto, retiro_monto = _dividir_retiros(retiros, bt, parcial, evento)   # v0.11
-        aport = A * ap1 * (1 + e.incr) ** ((t - 1) // 12)
+        aport = _aportacion(coh, A, ap1, e.incr, t)
         base = saldo + aport - retiros
         if t <= e.meses_sin_prestamo:
             cartera, inversion = 0.0, base
@@ -739,8 +772,18 @@ def _simular_p3(e: Empresa, extra=None):
         # Pieza 1: bajas de socios; Pieza 2: retiros (solo sobre la bolsa S)
         fija = baja_mensual(e) if t >= e.baja_inicio else 0.0
         bt = 1 - (1 - fija) * (1 - extra.get(t, 0.0))
+        if t == 1:
+            coh = [[A, 1]]                            # v13.2: cohortes (tamano, mes de entrada)
         if t > 1:
-            A = A * (1 - bt * (1 - e.reposicion))
+            enc = 1 - bt * (1 - e.reposicion)
+            A = A * enc
+            if enc != 1.0:
+                coh = [[sz * enc, jt] for sz, jt in coh]
+            fg = factor_crecimiento_mes(e, t)         # v13.2: socios nuevos (saldo cero)
+            if fg != 1.0:
+                A_ant = A
+                A = A * fg
+                coh.append([A - A_ant, t])
         cal = (m0 + t - 1) % 12 + 1
         parcial = e.retiro_parcial_mensual if t >= e.retiro_inicio else 0.0
         evento = 0.0
@@ -749,7 +792,7 @@ def _simular_p3(e: Empresa, extra=None):
                 + (e.pico_pct if (e.pico_mes and cal == e.pico_mes) else 0.0)
         retiros = min(bt + parcial + evento, 1.0) * S
         baja_monto, retiro_monto = _dividir_retiros(retiros, bt, parcial, evento)   # v0.11
-        aport = A * ap1 * (1 + e.incr) ** ((t - 1) // 12)
+        aport = _aportacion(coh, A, ap1, e.incr, t)
         base_socios = S + aport - retiros
         base = base_socios + R + C                      # fondo total que trabaja
         if t <= e.meses_sin_prestamo:
@@ -806,6 +849,19 @@ def _simular_p3(e: Empresa, extra=None):
             neto=rend_bruto, saldo=total, lic=lic, fact=fact,
             com_A=0.10 * fact, com_B=(0.30 if t <= 12 else 0.15) * fact))
     return filas
+
+
+def _aportacion(coh, A, ap1, incr, t):
+    """v13.2. Aportacion mensual. Sin socios nuevos = formula de v12. Con socios nuevos, cada cohorte
+    aporta segun SU propia edad: el aumento anual cuenta desde que el socio entra."""
+    if len(coh) == 1:
+        return A * ap1 * (1 + incr) ** ((t - 1) // 12)
+    return ap1 * sum(sz * (1 + incr) ** ((t - 1) // 12 - (jt - 1) // 12) for sz, jt in coh)
+
+
+def empresa_moderada(e: Empresa):
+    """v13.2. Escenario MODERADO de crecimiento: la mitad de cada tasa (funcion aparte; no cambia el modelo base)."""
+    return replace(e, crecimiento=tuple(g * 0.5 for g in e.crecimiento))
 
 
 def simular(e: Empresa, extra=None):
@@ -977,6 +1033,9 @@ def reglas():
                                    dict(impago_hasta=0.13, interes_minimo=0.025),
                                    dict(impago_hasta=0.15, interes_minimo=0.03)],
         impago_max=0.15,
+        crecimiento=dict(min=CRECIMIENTO_RANGO[0], max=CRECIMIENTO_RANGO[1], anios=5,
+                         base=list(CRECIMIENTO_BASE), ninguno=list(CRECIMIENTO_NINGUNO),
+                         factor_moderado=0.5, despues_del_anio_5="repite la ultima tasa"),
         limite_bono=_lbl(LIMITE_BONO[0] * 12 + LIMITE_BONO[1] - 1),
         cajas_para_bono=3,
         corridas_estres=CORRIDAS,
@@ -1094,6 +1153,9 @@ def desde_dict(d):
         malos = set(datos) - nombres
         if malos:
             raise ValueError("campos desconocidos: %s" % sorted(malos))
+        for k in ("crecimiento", "eventos_meses"):          # JSON entrega listas
+            if k in datos:
+                datos[k] = tuple(datos[k])
         if "grupos" in datos:
             datos["grupos"] = tuple(tuple(g) for g in datos["grupos"])
         datos.setdefault("nombre", "Empresa %d" % i)
@@ -1282,7 +1344,7 @@ def pruebas():
 
 def pruebas_v12():
     """v0.12 · pruebas de las 3 correcciones."""
-    assert version() == "0.12"
+    assert version() == VERSION
     # C1: redondeo en .5 exacto
     for N, adh, A in ((1430, 0.35, 501), (1000, 0.5005, 501), (1428, 0.35, 500), (800, 0.35, 280),
                       (1, 0.35, 0), (1, 1.0, 1), (500, 1.0, 500), (501, 1.0, 501), (100000, 0.35, 35000)):
@@ -1396,12 +1458,28 @@ if __name__ == "__main__":
             res = proyeccion(esq, emp)
         print(json.dumps(res, ensure_ascii=False, indent=1))
     else:
-        print("Pruebas v0.12:", pruebas() and pruebas_v11() and pruebas_v12())
+        # Las pruebas heredadas (v10 a v12) usan los valores ANTIGUOS: se corren con una Empresa de valores antiguos
+        # y crecimiento apagado. Las pruebas con los valores nuevos estan en pruebas_paso2_v13_p2.py.
+        @dataclass
+        class EmpresaHeredada(Empresa):
+            rotacion_anual: float = 0.25
+            retiro_parcial_mensual: float = 0.005
+            eventos_meses: tuple = (4, 5, 11, 12, 1)
+            pico_pct: float = 0.02
+            pct_cartera: float = 0.80
+            i_mens: float = 0.031
+            crecimiento: tuple = CRECIMIENTO_NINGUNO
+        _nueva = Empresa
+        Empresa = EmpresaHeredada
+        try:
+            print("Pruebas heredadas (valores antiguos):", pruebas() and pruebas_v11() and pruebas_v12())
+        finally:
+            Empresa = _nueva
 </script>
 <script id="py_puente" type="text/x-python"># -*- coding: utf-8 -*-
-# PUENTE front <-> motor v12 (NO es el motor; no contiene formulas de negocio, solo traduce datos y coloca el bonificador).
+# PUENTE front <-> motor v13.2 (NO es el motor; no contiene formulas de negocio, solo traduce datos y coloca el bonificador).
 import json
-import motor_simulador_v12 as m
+import motor_simulador_v13_p2 as m
 
 
 def calcular_front(txt):
@@ -1458,10 +1536,10 @@ window.APOYA_MOTOR=(async function(){
     await new Promise(function(r,j){x.onload=r;x.onerror=function(){j(new Error("script interno"))};document.head.appendChild(x)})}
   await carga(asm);await carga(pj);
   var py=await loadPyodide({indexURL:BASE});
-  py.FS.writeFile("/home/pyodide/motor_simulador_v12.py",document.getElementById("py_motor").textContent);
+  py.FS.writeFile("/home/pyodide/motor_simulador_v13_p2.py",document.getElementById("py_motor").textContent);
   py.FS.writeFile("/home/pyodide/puente.py",document.getElementById("py_puente").textContent);
-  py.runPython("import sys;sys.path.insert(0,'/home/pyodide')\nimport motor_simulador_v12 as _m\nimport puente as _p");
-  if(py.runPython("_m.version()")!=="0.12")throw new Error("Versión incompatible del motor");
+  py.runPython("import sys;sys.path.insert(0,'/home/pyodide')\nimport motor_simulador_v13_p2 as _m\nimport puente as _p");
+  if(py.runPython("_m.version()")!=="0.13.2")throw new Error("Versión incompatible del motor");
   return py.runPython("_p.calcular_front");
 })();
 </script>
@@ -1470,7 +1548,7 @@ window.APOYA_MOTOR=(async function(){
 "use strict";
 var MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 var MAX=9, nextId=1, editingId=null, flashId=null;
-var S={emp:500, y:2027, m:1, int:3.1, adh:65};
+var S={emp:500, y:2027, m:1, int:2.3, adh:65};
 var PAG=3, page=1, selId=null;
 var list=[];
 
@@ -1482,7 +1560,7 @@ function minInt(imp){return imp<=11?2.0:(imp<=13?2.5:3.0)}
 function fecha(c){return MES[c.m-1]+"-"+c.y}
 function toast(t){var el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2600)}
 
-/* ---------- MOTOR v12 (Python dentro del navegador) ----------
+/* ---------- MOTOR v13.2 (Python dentro del navegador) ----------
    El front ya no calcula: envia la lista de empresas al puente y pinta lo que devuelve el motor. */
 var ENG=null;
 function calcula(){
@@ -1526,7 +1604,7 @@ ticks("intT",[2,2.5,3,3.5,4,4.5,5].map(function(v){return [(v-2)/3,v.toFixed(1)]
 ticks("adhT",[35,50,65,80,100].map(function(v){return [(v-35)/65,String(v)]}));
 
 
-/* ---------- 3a4 · ESTADO DE RESULTADOS (datos del motor v12) ---------- */
+/* ---------- 3a4 · ESTADO DE RESULTADOS (datos del motor v13.2) ---------- */
 function plK(v){var r=Math.round(Math.abs(v)/1000);if(!r)return Math.abs(v)<0.5?"–":(v<0?"(<1)":"<1");var t=r.toLocaleString("en-US");return v<0?"("+t+")":t}
 function plRender(ER){
   var fee=num("fee",15), sum=function(a){return a.reduce(function(x,y){return x+y},0)};
@@ -1536,7 +1614,7 @@ function plRender(ER){
     ["(+)","Aportaciones",col("aportaciones")],["(−)","Bajas por rotación",col("bajas",true)],["(−)","Retiros",col("retiros",true)],
     ["(=)","Ahorro neto del año",col("ahorro_neto"),"sub"],["","Ahorro prom. que trabaja",col("ahorro_prom_trabaja"),"memo"],
     ["sec","Rendimiento"],
-    ["(+)","Interés de préstamos (80%)",col("interes_prestamos")],["(+)","Inversión (20%)",col("inversion")],["(=)","Rendimiento bruto",col("rendimiento_bruto"),"sub"],
+    ["(+)","Interés de préstamos (70%)",col("interes_prestamos")],["(+)","Inversión (30%)",col("inversion")],["(=)","Rendimiento bruto",col("rendimiento_bruto"),"sub"],
     ["sec","Facturación de Apoya"],
     ["(×"+fee+"%)","Fee de Apoya",col("fee")],["(+)","Licencia",col("licencia")],["(=)","Facturación de Apoya",col("facturacion"),"sub"],
     ["sec","Tu ingreso"],
@@ -1549,13 +1627,13 @@ function plRender(ER){
     h+='<span class="op '+c+'">'+r[0]+'</span><span class="lb2 '+c+'">'+r[1]+'</span>'+r[2].map(function(v){return '<span class="v '+c+'">'+plK(v)+'</span>'}).join("")+'<span class="v '+c+'" style="font-weight:700">'+t+'</span>';
   });
   $("pl").innerHTML=h;
-  $("plN").textContent="Cifras del motor v12. La comisión va en el año de su factura y se paga un mes después. El bonificador es un pago único: va en el año de vida de la caja más antigua del pago, en el mes en que se cobra, y no está en 3a1.";
+  $("plN").textContent="Cifras del motor v13.2. La comisión va en el año de su factura y se paga un mes después. El bonificador es un pago único: va en el año de vida de la caja más antigua del pago, en el mes en que se cobra, y no está en 3a1.";
 }
 
 /* ---------- RENDER ---------- */
 function render(){
   if(!ENG)return;
-  /* 3a · cifras del motor v12 */
+  /* 3a · cifras del motor v13.2 */
   var R=null;
   if(list.length){
     try{R=calcula()}catch(err){toast("Error del motor: "+err.message);return}
@@ -1568,7 +1646,7 @@ function render(){
   $("vTot").textContent=fmt(tot);
   $("yrs").innerHTML=yr.map(function(v,i){return '<div class="yr"><span class="a">Año '+(i+1)+'</span><div class="tk"><i style="width:'+(100*v/mxy).toFixed(1)+'%"></i></div><span class="g">'+(i&&yr[i-1]>0?'+'+Math.round(100*(v/yr[i-1]-1))+'%':'')+'</span><span class="m">'+fmt(v)+'</span></div>'}).join("");
   plRender(ER);
-  /* 3a3a · cifras clave (motor v12) */
+  /* 3a3a · cifras clave (motor v13.2) */
   var sel=$("selCaja"), op='<option value="">Todas las empresas</option>';
   list.forEach(function(c,k){op+='<option value="'+c.id+'">Empresa #'+(k+1)+'</option>'});
   var prev=selId; sel.innerHTML=op;
@@ -1663,11 +1741,11 @@ $("add").addEventListener("click",function(){
   if(!(S.emp>0)){aviso("Escribe un número de empleados mayor a 0.");return}
   if(editingId){
     var c=list.filter(function(x){return x.id===editingId})[0];
-    if(c){c.emp=S.emp;c.adh=S.adh;c.y=S.y;c.m=S.m;c.int=S.int;c.imp=num("imp",5);c.rot=num("rot",15);flashId=c.id;page=Math.floor(list.indexOf(c)/PAG)+1}
+    if(c){c.emp=S.emp;c.adh=S.adh;c.y=S.y;c.m=S.m;c.int=S.int;c.imp=num("imp",5);c.rot=num("rot",20);flashId=c.id;page=Math.floor(list.indexOf(c)/PAG)+1}
     editingId=null;aviso("");pintaForm();render();return;
   }
   if(list.length>=MAX){aviso("Llegaste a "+MAX+" empresas. Quita una para agregar otra.");return}
-  var nuevo={id:nextId++,emp:S.emp,adh:S.adh,y:S.y,m:S.m,int:S.int,imp:num("imp",5),rot:num("rot",15)};
+  var nuevo={id:nextId++,emp:S.emp,adh:S.adh,y:S.y,m:S.m,int:S.int,imp:num("imp",5),rot:num("rot",20)};
   list.push(nuevo);flashId=nuevo.id;page=Math.ceil(list.length/PAG);aviso("");render();
 });
 $("cancel").addEventListener("click",function(){editingId=null;aviso("");pintaForm()});
@@ -1680,8 +1758,8 @@ if($("lista"))$("lista").addEventListener("click",function(e){
   if(rm){var id=parseInt(rm,10);list=list.filter(function(x){return x.id!==id});if(editingId===id){editingId=null;pintaForm()}aviso("");render()}
 });
 $("reset").addEventListener("click",function(){
-  list=[];nextId=1;page=1;editingId=null;S={emp:500,y:2027,m:1,int:3.1,adh:65};
-  $("fee").value=15;$("precio").value=25;$("imp").value=5;$("rot").value=15;$("rend").value=6.45;
+  list=[];nextId=1;page=1;editingId=null;S={emp:500,y:2027,m:1,int:2.3,adh:65};
+  $("fee").value=15;$("precio").value=25;$("imp").value=5;$("rot").value=20;$("rend").value=6.45;
   aviso("");$("intNote").hidden=true;pintaForm();render();
 });
 $("langEN").addEventListener("click",function(){toast("El inglés llega en la Etapa 5. Por ahora, solo español.")});
